@@ -96,25 +96,6 @@ class MyConv2d(nn.Module):
             x = x + bias.view(1, -1, 1, 1)
         return x
 
-    class NoiseLayer(nn.Module):
-        """adds noise. noise is per pixel (constant over channels) with per-channel weight"""
-
-        def __init__(self, channels):
-            super().__init__()
-            self.weight = nn.Parameter(torch.zeros(channels))
-            self.noise = None
-
-        def forward(self, x, noise=None):
-            if noise is None and self.noise is None:
-                noise = torch.randn(x.size(0), 1, x.size(2), x.size(3), device=x.device, dtype=x.dtype)
-            elif noise is None:
-                # here is a little trick: if you get all the noiselayers and set each
-                # modules .noise attribute, you can have pre-defined noise.
-                # Very useful for analysis
-                noise = self.noise
-            x = x + self.weight.view(1, -1, 1, 1) * noise
-            return x
-
 
 class NoiseLayer(nn.Module):
     """adds noise. noise is per pixel (constant over channels) with per-channel weight"""
@@ -149,6 +130,7 @@ class StyleMod(nn.Module):
         style = style.view(shape)  # [batch_size, 2, n_channels, ...]
         x = x * (style[:, 0] + 1.) + style[:, 1]
         return x
+    
 
 class PixelNormLayer(nn.Module):
     def __init__(self, epsilon=1e-8):
@@ -184,6 +166,7 @@ class BlurLayer(nn.Module):
         )
         return x
 
+    
 def upscale2d(x, factor=2, gain=1):
     assert x.dim() == 4
     if gain != 1:
@@ -193,6 +176,7 @@ def upscale2d(x, factor=2, gain=1):
         x = x.view(shape[0], shape[1], shape[2], 1, shape[3], 1).expand(-1, -1, -1, factor, -1, factor)
         x = x.contiguous().view(shape[0], shape[1], factor * shape[2], factor * shape[3])
     return x
+
 
 class Upscale2d(nn.Module):
     def __init__(self, factor=2, gain=1):
@@ -235,6 +219,7 @@ class G_mapping(nn.Sequential):
         x = x.unsqueeze(1).expand(-1, 18, -1)
         return x
 
+    
 class Truncation(nn.Module):
     def __init__(self, avg_latent, max_layer=8, threshold=0.7):
         super().__init__()
@@ -247,6 +232,7 @@ class Truncation(nn.Module):
         do_trunc = (torch.arange(x.size(1)) < self.max_layer).view(1, -1, 1)
         return torch.where(do_trunc, interp, x)
 
+    
 class LayerEpilogue(nn.Module):
     """Things to do at the end of each layer."""
     def __init__(self, channels, dlatent_size, use_wscale, use_noise, use_pixel_norm, use_instance_norm, use_styles, activation_layer):
