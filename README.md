@@ -4,7 +4,7 @@
 
 img1 and img2 are generated using random noise.
 
-the 3rd image is a combination between the first two images.
+the 3rd image is a combination between the first two latent spaces.
 
 the third image has a much better quality, even if the first two are poorly generated.
 
