@@ -20,7 +20,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #              "Straight_Hair": 0.3993, "Wavy_Hair": 0.49615, "Young": 0.93806},
 # "latent_space": [[-1.3095457553863525, 0.8847733736038208, 0.3035028874874115, -2.1871345043182373, ...]]}
 
-files = ['3000', '6000', '9000', '12000', '15000', '18000', '21000']
+files = ['train3000.json', 'train6000.json', 'train9000.json', 'train12000.json', 
+         'train15000.json', 'train18000.json', 'train21000.json']
 
 class LatentSpaceDataset(Dataset):
     def __init__(self, data_path, train=True):
@@ -30,8 +31,8 @@ class LatentSpaceDataset(Dataset):
         #self.latent_spaces = torch.tensor([d['latent_space'] for d in data], dtype=torch.float32)
 
         if train:
-            for nr in files:
-                with open(data_path + nr + '.json', 'r') as f:
+            for file in files:
+                with open(data_path + file, 'r') as f:
                     j_data = json.load(f)
                     for _dict in j_data:
                         self.data.append(_dict)
@@ -74,7 +75,7 @@ class LinearRegression(nn.Module):
 
 
 def train():
-    train_dataset = LatentSpaceDataset('ls_dataset/train')
+    train_dataset = LatentSpaceDataset('ls_dataset/')
     train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True, pin_memory=True)
 
     model = LinearRegression(input_size=20, output_size=512, hidden_size=128)
@@ -127,21 +128,5 @@ def test(model):
     print('Test Loss: %.3f' % (total_loss / len(test_dataloader)))
 
 
-def read_json():
-    files = ['3000', '6000', '9000', '12000', '15000', '18000', '21000']
-
-    for nr in files:
-
-        with open('ls_dataset/train' + nr + '.json', 'r') as f:
-            file1k = json.load(f)
-
-
-        print(len(file1k))
-    with open('ls_dataset/test.json', 'r') as f:
-        test_ = json.load(f)
-    print(len(test_))
-
-
 if __name__ == "__main__":
-    #read_json()
     train()
