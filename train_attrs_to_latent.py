@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
+import numpy as np
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -20,7 +21,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #              "Straight_Hair": 0.3993, "Wavy_Hair": 0.49615, "Young": 0.93806},
 # "latent_space": [[-1.3095457553863525, 0.8847733736038208, 0.3035028874874115, -2.1871345043182373, ...]]}
 
-files = ['train3000.json', 'train6000.json', 'train9000.json', 'train12000.json', 
+files = ['train3000.json', 'train6000.json', 'train9000.json', 'train12000.json',
          'train15000.json', 'train18000.json', 'train21000.json']
 
 class LatentSpaceDataset(Dataset):
@@ -60,10 +61,12 @@ class LinearRegression(nn.Module):
     def __init__(self, input_size, output_size, hidden_size):
         super(LinearRegression, self).__init__()
         self.fc1 = nn.Linear(input_size, hidden_size)
-        self.relu1 = nn.ReLU()
         self.fc2 = nn.Linear(hidden_size, hidden_size*2)
-        self.relu2 = nn.ReLU()
-        self.fc3 = nn.Linear(hidden_size*2, output_size)
+        self.fc3 = nn.Linear(hidden_size*2, hidden_size*4)
+        self.fc4 = nn.Linear(hidden_size*4, output_size)
+        self.relu1 = nn.LeakyReLU()
+        self.relu2 = nn.LeakyReLU()
+        self.relu3 = nn.LeakyReLU()
 
     def forward(self, x):
         out = self.fc1(x)
@@ -71,18 +74,20 @@ class LinearRegression(nn.Module):
         out = self.fc2(out)
         out = self.relu2(out)
         out = self.fc3(out)
+        out = self.relu3(out)
+        out = self.fc4(out)
         return out
 
 
 def train():
     train_dataset = LatentSpaceDataset('ls_dataset/')
-    train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True, pin_memory=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=32, shuffle=True, pin_memory=True)
 
-    model = LinearRegression(input_size=20, output_size=512, hidden_size=128)
+    model = LinearRegression(input_size=20, output_size=512, hidden_size=1024)
     model.to(device)
     criterion = nn.MSELoss()
     #criterion = nn.L1Loss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.5, 0.999))
+    optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999))
     #optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
     epochs = 5000
