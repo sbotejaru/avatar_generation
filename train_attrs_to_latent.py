@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
+import matplotlib.pyplot as plt
 import numpy as np
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -64,36 +65,55 @@ class LinearRegression(nn.Module):
         self.fc2 = nn.Linear(hidden_size, hidden_size*2)
         self.fc3 = nn.Linear(hidden_size*2, hidden_size*4)
         self.fc4 = nn.Linear(hidden_size*4, output_size)
+
         self.relu1 = nn.LeakyReLU()
         self.relu2 = nn.LeakyReLU()
         self.relu3 = nn.LeakyReLU()
 
+        self.dropout1 = nn.Dropout(p=0.1)
+        self.dropout2 = nn.Dropout(p=0.1)
+        self.dropout3 = nn.Dropout(p=0.2)
+
+
     def forward(self, x):
         out = self.fc1(x)
+        out = self.dropout1(out)
         out = self.relu1(out)
+
         out = self.fc2(out)
+        out = self.dropout2(out)
         out = self.relu2(out)
+
         out = self.fc3(out)
+        out = self.dropout3(out)
         out = self.relu3(out)
+
         out = self.fc4(out)
         return out
 
 
 def train():
     train_dataset = LatentSpaceDataset('ls_dataset/')
-    train_dataloader = DataLoader(train_dataset, batch_size=32, shuffle=True, pin_memory=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True, pin_memory=True)
+
+    test_dataset = LatentSpaceDataset('ls_dataset/test.json', train=False)
+    test_dataloader = DataLoader(test_dataset, batch_size=64, shuffle=False, pin_memory=True)
 
     model = LinearRegression(input_size=20, output_size=512, hidden_size=1024)
     model.to(device)
     criterion = nn.MSELoss()
     #criterion = nn.L1Loss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999))
+    optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.5, 0.999))
     #optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
-    epochs = 5000
+    train_losses = []
+    test_losses = []
 
+    epochs = 100
     for epoch in range(epochs):
         running_loss = 0.0
+        test_running_loss = 0.0
+        model.train()
         for features, latent_spaces in train_dataloader:
             features = features.to(device)
             latent_spaces = latent_spaces.to(device)
@@ -105,19 +125,51 @@ def train():
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
-        print('Epoch %d Loss: %.3f' % (epoch + 1, running_loss / len(train_dataloader)))
+
+        model.eval()
+        with torch.no_grad():
+            for features, latent_spaces in test_dataloader:
+                features = features.to(device)
+                latent_spaces = latent_spaces.to(device)
+                outputs = model(features)
+                loss = criterion(outputs, latent_spaces)
+                test_running_loss += loss.item()
+
+        train_loss = running_loss / len(train_dataloader)
+        test_loss = test_running_loss / len(test_dataloader)
+
+        train_losses.append(train_loss)
+        test_losses.append(test_loss)
+
+        print('Epoch %d Loss: %.3f \t Validation loss: %.3f' %
+              (epoch + 1, train_loss, test_loss))
 
         if (epoch + 1) % 100 == 0:
             checkpoint_path = f"ls_weights/model_epoch_{epoch + 1}.pt"
             torch.save(model.state_dict(), checkpoint_path)
             print(f"Checkpoint saved at epoch {epoch + 1}")
 
-    test(model)
+    plt.plot(train_losses, label='Training Loss')
+    plt.plot(test_losses, label='Validation Loss')
+
+    # add legend
+    plt.legend()
+
+    # set axis labels
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+
+    # save the figure
+    plt.savefig('ls_weights/loss_plot_2.png')
+    #test(model)
 
 
-def test(model):
+def test():
+    model = LinearRegression(input_size=20, output_size=512, hidden_size=1024).to(device)
+    model.load_state_dict(torch.load('ls_weights_3/model_epoch_5000.pt'))
+
     test_dataset = LatentSpaceDataset('ls_dataset/test.json', train=False)
-    test_dataloader = DataLoader(test_dataset, batch_size=32, shuffle=False, pin_memory=True)
+    test_dataloader = DataLoader(test_dataset, batch_size=64, shuffle=False, pin_memory=True)
     criterion = nn.MSELoss()
     model.eval()
 
@@ -135,3 +187,4 @@ def test(model):
 
 if __name__ == "__main__":
     train()
+    #test()
